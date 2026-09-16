@@ -1,15 +1,14 @@
+type D1Statement = {
+  bind(...values: unknown[]): D1Statement;
+  first<T = unknown>(): Promise<T | null>;
+  all<T = unknown>(): Promise<{ results: T[] }>;
+  run(): Promise<unknown>;
+};
+
 type MaidCenterBindings = {
   DB?: {
-    prepare(query: string): {
-      bind(...values: unknown[]): {
-        first<T = unknown>(): Promise<T | null>;
-        all<T = unknown>(): Promise<{ results?: T[] }>;
-        run(): Promise<unknown>;
-      };
-      first<T = unknown>(): Promise<T | null>;
-      all<T = unknown>(): Promise<{ results?: T[] }>;
-      run(): Promise<unknown>;
-    };
+    prepare(query: string): D1Statement;
+    batch(statements: D1Statement[]): Promise<unknown[]>;
   };
   BUCKET?: {
     put(key: string, value: unknown, options?: unknown): Promise<unknown>;
