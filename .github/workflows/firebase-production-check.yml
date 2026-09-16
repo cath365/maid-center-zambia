@@ -43,4 +43,4 @@ jobs:
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "870188151806"
           NEXT_PUBLIC_FIREBASE_APP_ID: "1:870188151806:web:f3032852782ae4897d46af"
           NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: "G-JQZ1ZS7K1F"
-        run: pnpm build:vercel
+        run: pnpm build
