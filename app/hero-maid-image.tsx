@@ -1,4 +1,3 @@
-import Image from "next/image";
 import part0 from "./hero-image-data/part0";
 import part1 from "./hero-image-data/part1";
 import part2 from "./hero-image-data/part2";
@@ -12,13 +11,13 @@ export function HeroMaidImage() {
   return (
     <div className={styles.visual} aria-label="Professional household worker illustration">
       <div className={styles.imageCard}>
-        <Image
+        <img
           src={maidHeroImage}
           alt="Smiling household professional holding a green mop and cleaning bucket"
           width={700}
           height={935}
-          priority
-          unoptimized
+          loading="eager"
+          decoding="async"
           className={styles.image}
         />
       </div>
