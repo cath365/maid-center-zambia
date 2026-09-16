@@ -1,0 +1,2 @@
+import { env } from "cloudflare:workers";
+export function database(){if(!env.DB)throw new Error("Database unavailable");return env.DB}export function bucket(){if(!env.BUCKET)throw new Error("Document storage unavailable");return env.BUCKET}export function clean(v:FormDataEntryValue|null,max=500){return typeof v==="string"?v.trim().slice(0,max):""}export function ref(prefix:string){return `${prefix}-${new Date().getFullYear()}-${crypto.randomUUID().slice(0,8).toUpperCase()}`}

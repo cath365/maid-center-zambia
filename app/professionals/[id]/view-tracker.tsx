@@ -1,0 +1,1 @@
+"use client";import { useEffect } from "react";export function ProfileViewTracker({workerId}:{workerId:string}){useEffect(()=>{void fetch(`/api/profiles/${workerId}/view`,{method:"POST"})},[workerId]);return null}

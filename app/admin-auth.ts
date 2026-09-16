@@ -1,0 +1,1 @@
+import { getChatGPTUser } from "./chatgpt-auth";export const ADMIN_EMAIL="denuelinambao@gmail.com";export async function getAdmin(){const u=await getChatGPTUser();return u?.email.toLowerCase()===ADMIN_EMAIL?u:null}
