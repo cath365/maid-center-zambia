@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { FirebaseAnalytics } from "./firebase-analytics";
 
 export const metadata: Metadata = {
   title: "Maid Center Zambia — Trusted household professionals",
@@ -17,7 +18,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <FirebaseAnalytics />
+        {children}
+      </body>
     </html>
   );
 }
