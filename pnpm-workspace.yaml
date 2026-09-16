@@ -9,6 +9,8 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   workerd: true
+  "@firebase/util": true
+  protobufjs: true
 storeDir: ${SITES_PNPM_SHARED_STORE:-.sites-runtime/pnpm-store}
 cacheDir: ${SITES_PNPM_SHARED_STORE:-.sites-runtime/pnpm-store}/policy-cache
 enableGlobalVirtualStore: false
