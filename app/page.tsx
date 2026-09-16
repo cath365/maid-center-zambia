@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShieldCheck, Users, Search, BriefcaseBusiness, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, ArrowRight, CheckCircle2 } from "lucide-react";
 import { RegistrationForms } from "./registration-forms";
 import { HeroMaidImage } from "./hero-maid-image";
 
@@ -11,5 +11,4 @@ export default function Home(){return <main><header className="site-header"><div
 <section id="register" className="section register-section"><div className="shell"><Heading eyebrow="Start here" title="Choose the form that fits you" copy="Create your secure account while submitting your profile. NRC details and references are private and never shown publicly."/><RegistrationForms/></div></section>
 <section className="safety"><div className="shell safety-grid"><div><ShieldCheck size={38}/><h2>Privacy and safeguarding first</h2></div><div><p><CheckCircle2/> Workers must be 18 or older.</p><p><CheckCircle2/> Documents are visible only to authorised administrators.</p><p><CheckCircle2/> Clients are reviewed before contacts are shared.</p></div></div></section>
 <footer><div className="shell footer-grid"><div><div className="brand"><span className="brand-mark">MC</span><span>Maid Center <b>Zambia</b></span></div><p>Safer connections between homes and household professionals.</p></div><div><strong>Platform</strong><a href="#services">Services</a><a href="#register">Registration</a><Link href="/auth">Sign in</Link></div><div><strong>Location</strong><span>Lusaka, Zambia</span><span>Contact details coming soon</span></div></div><div className="shell copyright">© 2026 Maid Center Zambia</div></footer></main>}
-function Journey({icon,title,copy,n}:{icon:React.ReactNode;title:string;copy:string;n:string}){return <div className="journey"><div>{icon}<span><strong>{title}</strong><small>{copy}</small></span></div><b>{n}</b></div>}
 function Heading({eyebrow,title,copy}:{eyebrow:string;title:string;copy:string}){return <div className="section-heading"><span className="eyebrow dark">{eyebrow}</span><h2>{title}</h2><p>{copy}</p></div>}
