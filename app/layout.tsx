@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./home.css";
+import "./register/register.css";
 import { FirebaseAnalytics } from "./firebase-analytics";
 
 export const metadata: Metadata = {
