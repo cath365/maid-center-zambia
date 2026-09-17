@@ -92,13 +92,13 @@ export function ProfessionalsDirectory() {
       setEmployerName(base.displayName || user.displayName || "Employer");
       const [employerSnapshot, maidSnapshot] = await Promise.all([
         getDoc(doc(db, "employers", user.uid)),
-        getDocs(query(collection(db, "maids"), where("verificationStatus", "==", "approved"))),
+        getDocs(query(collection(db, "maidPublicProfiles"), where("verificationStatus", "==", "approved"))),
       ]);
       setEmployer(employerSnapshot.exists() ? (employerSnapshot.data() as EmployerProfile) : null);
       setMaids(maidSnapshot.docs.map((item) => ({ uid: item.id, ...(item.data() as Omit<MaidProfile, "uid">) })));
     } catch (err) {
       console.error(err);
-      setError("Could not load approved maid profiles. Please try again.");
+      setError("Could not load approved professional profiles. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -140,7 +140,7 @@ export function ProfessionalsDirectory() {
       </header>
       <div className="shell directory-main">
         <div className="directory-heading">
-          <div><span className="overline">Approved professional directory</span><h1>Household professionals</h1><p>Search approved Maid Center profiles. Private identity documents, references and direct contact information remain protected.</p></div>
+          <div><span className="overline">Approved professional directory</span><h1>Household professionals</h1><p>Search approved Maid Center profiles. Private identity documents, references and direct contact information are never loaded into this directory.</p></div>
           <Link className="outline-button" href="/dashboard">My account</Link>
         </div>
 
@@ -174,7 +174,7 @@ export function ProfessionalsDirectory() {
               <span className="profile-link">View professional profile</span>
             </Link>
           ))}
-          {!error && maids.length === 0 ? <div className="professional-empty wide"><h3>No approved profiles are available yet</h3><p>Approved worker profiles will appear here automatically after administrator verification.</p></div> : null}
+          {!error && maids.length === 0 ? <div className="professional-empty wide"><h3>No approved profiles are available yet</h3><p>Approved worker profiles will appear here automatically after administrator verification and publishing.</p></div> : null}
           {!error && maids.length > 0 && visibleMaids.length === 0 ? <div className="directory-empty-filter"><h3>No profiles match those filters</h3><p>Try clearing the search, area or arrangement filter.</p></div> : null}
         </div>
       </div>
