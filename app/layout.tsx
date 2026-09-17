@@ -5,6 +5,7 @@ import "./register/register.css";
 import "./content-pages.css";
 import "./dashboard/dashboard-enhancements.css";
 import "./admin/admin-v2.css";
+import "./professionals/professionals-enhancements.css";
 import { FirebaseAnalytics } from "./firebase-analytics";
 
 export const metadata: Metadata = {
