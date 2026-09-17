@@ -1,5 +1,5 @@
-import { FirebaseDashboardV2 } from "./firebase-dashboard-v2";
+import { FirebaseDashboardV3 } from "./firebase-dashboard-v3";
 
 export default function DashboardPage() {
-  return <FirebaseDashboardV2 />;
+  return <FirebaseDashboardV3 />;
 }
