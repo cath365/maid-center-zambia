@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { collection, doc, getDocs, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, getDocs, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
 import {
   BriefcaseBusiness,
   CheckCircle2,
@@ -13,7 +13,6 @@ import {
   RefreshCw,
   ShieldCheck,
   Users,
-  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -27,8 +26,13 @@ type MaidRecord = {
   area?: string;
   workType?: string;
   services?: string;
+  languages?: string;
   experienceYears?: number;
+  expectedRate?: number;
+  workHistory?: string;
   verificationStatus?: string;
+  availability?: string;
+  profilePhotoURL?: string;
   nrcDocumentURL?: string;
 };
 
@@ -55,6 +59,24 @@ type ApplicationRecord = {
 };
 
 type Tab = "workers" | "clients" | "applications";
+
+function publicMaidProfile(maid: MaidRecord) {
+  return {
+    uid: maid.uid,
+    fullName: maid.fullName || "Maid Center professional",
+    area: maid.area || "",
+    workType: maid.workType || "",
+    services: maid.services || "",
+    languages: maid.languages || "",
+    experienceYears: Number(maid.experienceYears || 0),
+    expectedRate: Number(maid.expectedRate || 0),
+    workHistory: maid.workHistory || "",
+    availability: maid.availability || "available",
+    profilePhotoURL: maid.profilePhotoURL || "",
+    verificationStatus: "approved",
+    updatedAt: serverTimestamp(),
+  };
+}
 
 export function FirebaseAdminDashboard() {
   const router = useRouter();
@@ -120,13 +142,25 @@ export function FirebaseAdminDashboard() {
 
   async function updateVerification(collectionName: "maids" | "employers", uid: string, status: string) {
     try {
-      await updateDoc(doc(db, collectionName, uid), { verificationStatus: status, updatedAt: serverTimestamp() });
-      if (collectionName === "maids") setMaids((rows) => rows.map((row) => row.uid === uid ? { ...row, verificationStatus: status } : row));
-      else setEmployers((rows) => rows.map((row) => row.uid === uid ? { ...row, verificationStatus: status } : row));
+      if (collectionName === "maids") {
+        const maid = maids.find((item) => item.uid === uid);
+        if (!maid) throw new Error("Worker profile was not found in the current dashboard data.");
+
+        const batch = writeBatch(db);
+        batch.update(doc(db, "maids", uid), { verificationStatus: status, updatedAt: serverTimestamp() });
+        const publicRef = doc(db, "maidPublicProfiles", uid);
+        if (status === "approved") batch.set(publicRef, publicMaidProfile(maid));
+        else batch.delete(publicRef);
+        await batch.commit();
+        setMaids((rows) => rows.map((row) => row.uid === uid ? { ...row, verificationStatus: status } : row));
+      } else {
+        await updateDoc(doc(db, "employers", uid), { verificationStatus: status, updatedAt: serverTimestamp() });
+        setEmployers((rows) => rows.map((row) => row.uid === uid ? { ...row, verificationStatus: status } : row));
+      }
       toast.success(`Status changed to ${status}.`);
     } catch (error) {
       console.error(error);
-      toast.error("Firebase blocked the status update. Confirm the signed-in user has the admin role.");
+      toast.error("Firebase blocked the status update. Confirm the security rules are deployed and the signed-in user has the admin role.");
     }
   }
 
@@ -183,7 +217,7 @@ export function FirebaseAdminDashboard() {
           <Stat icon={<ClipboardList/>} n={openApplications} t="Open applications"/>
         </div>
 
-        <div className="admin-alert"><ShieldCheck size={20}/><div><strong>One source of truth</strong><span>This dashboard now uses Firestore—the same database used by registration, professional profiles and employer requests.</span></div></div>
+        <div className="admin-alert"><ShieldCheck size={20}/><div><strong>Private verification, public professional profile</strong><span>Approving a worker publishes only the professional fields required by employers. NRC, phone, references and other verification data remain in protected records.</span></div></div>
 
         <div className="admin-tabs" role="tablist">
           <button className={tab === "workers" ? "active" : ""} onClick={() => setTab("workers")}>Workers <span>{maids.length}</span></button>
@@ -191,7 +225,7 @@ export function FirebaseAdminDashboard() {
           <button className={tab === "applications" ? "active" : ""} onClick={() => setTab("applications")}>Placement pipeline <span>{applications.length}</span></button>
         </div>
 
-        {tab === "workers" && <section className="admin-card"><div className="admin-card-title"><div><h2>Worker verification</h2><p>{pendingWorkers} profile{pendingWorkers === 1 ? "" : "s"} currently awaiting a decision.</p></div></div>{maids.length ? <div className="admin-table-wrap"><table className="data-table"><thead><tr><th>Professional</th><th>Location & work</th><th>Experience</th><th>Status</th><th>Verification</th></tr></thead><tbody>{maids.map((maid) => <tr key={maid.uid}><td><strong>{maid.fullName || "Unnamed professional"}</strong><br/><small>{maid.phone || "No phone"}</small><br/><small>{maid.services || "No services listed"}</small></td><td>{maid.area || "Not set"}<br/><small>{maid.workType || "Not set"}</small></td><td>{Number(maid.experienceYears || 0)} years</td><td><Status value={maid.verificationStatus || "pending"}/></td><td><div className="admin-actions"><button onClick={() => updateVerification("maids", maid.uid, "screening")}>Screening</button><button className="approve" onClick={() => updateVerification("maids", maid.uid, "approved")}>Approve</button><button className="reject" onClick={() => updateVerification("maids", maid.uid, "rejected")}>Reject</button>{maid.nrcDocumentURL ? <a href={maid.nrcDocumentURL} target="_blank" rel="noreferrer">View NRC</a> : null}</div></td></tr>)}</tbody></table></div> : <Empty text="No worker profiles have been submitted yet."/>}</section>}
+        {tab === "workers" && <section className="admin-card"><div className="admin-card-title"><div><h2>Worker verification</h2><p>{pendingWorkers} profile{pendingWorkers === 1 ? "" : "s"} currently awaiting a decision.</p></div></div>{maids.length ? <div className="admin-table-wrap"><table className="data-table"><thead><tr><th>Professional</th><th>Location & work</th><th>Experience</th><th>Status</th><th>Verification</th></tr></thead><tbody>{maids.map((maid) => <tr key={maid.uid}><td><strong>{maid.fullName || "Unnamed professional"}</strong><br/><small>{maid.phone || "No phone"}</small><br/><small>{maid.services || "No services listed"}</small></td><td>{maid.area || "Not set"}<br/><small>{maid.workType || "Not set"}</small></td><td>{Number(maid.experienceYears || 0)} years</td><td><Status value={maid.verificationStatus || "pending"}/></td><td><div className="admin-actions"><button onClick={() => updateVerification("maids", maid.uid, "screening")}>Screening</button><button className="approve" onClick={() => updateVerification("maids", maid.uid, "approved")}>Approve & publish</button><button className="reject" onClick={() => updateVerification("maids", maid.uid, "rejected")}>Reject</button>{maid.nrcDocumentURL ? <a href={maid.nrcDocumentURL} target="_blank" rel="noreferrer">View NRC</a> : null}</div></td></tr>)}</tbody></table></div> : <Empty text="No worker profiles have been submitted yet."/>}</section>}
 
         {tab === "clients" && <section className="admin-card"><div className="admin-card-title"><div><h2>Employer verification</h2><p>Review staffing requests before sensitive placement information is shared.</p></div></div>{employers.length ? <div className="admin-table-wrap"><table className="data-table"><thead><tr><th>Employer</th><th>Request</th><th>Budget</th><th>Status</th><th>Verification</th></tr></thead><tbody>{employers.map((employer) => <tr key={employer.uid}><td><strong>{employer.fullName || "Unnamed employer"}</strong><br/><small>{employer.phone || employer.email || "No contact"}</small></td><td>{employer.service || "Not set"}<br/><small>{employer.area || "Area not set"}</small></td><td>ZMW {Number(employer.budget || 0).toLocaleString("en-ZM")}</td><td><Status value={employer.verificationStatus || "pending"}/></td><td><div className="admin-actions"><button onClick={() => updateVerification("employers", employer.uid, "screening")}>Screening</button><button className="approve" onClick={() => updateVerification("employers", employer.uid, "approved")}>Verify</button><button className="reject" onClick={() => updateVerification("employers", employer.uid, "rejected")}>Reject</button></div></td></tr>)}</tbody></table></div> : <Empty text="No employer requests have been submitted yet."/>}</section>}
 
