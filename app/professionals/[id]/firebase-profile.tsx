@@ -49,19 +49,20 @@ export function FirebaseMaidProfile({ maidId }: { maidId: string }) {
       setViewerUid(user.uid);
       setViewerRole(base.role);
 
-      const snapshot = await getDoc(doc(db, "maids", maidId));
+      const isOwner = user.uid === maidId;
+      const sourceCollection = isOwner ? "maids" : "maidPublicProfiles";
+      const snapshot = await getDoc(doc(db, sourceCollection, maidId));
       if (!snapshot.exists()) {
-        setError("This maid profile could not be found.");
+        setError(isOwner ? "Your worker profile could not be found." : "This approved professional profile is not available.");
         return;
       }
 
       const data = snapshot.data() as MaidProfile;
-      const isOwner = user.uid === maidId;
       const canReview = base.role === "employer" || base.role === "admin";
       const isApproved = String(data.verificationStatus || "").toLowerCase() === "approved";
 
-      if (!isOwner && (!canReview || (!isApproved && base.role !== "admin"))) {
-        setError("This maid profile is not available to your account.");
+      if (!isOwner && (!canReview || !isApproved)) {
+        setError("This professional profile is not available to your account.");
         return;
       }
 
@@ -73,7 +74,7 @@ export function FirebaseMaidProfile({ maidId }: { maidId: string }) {
       }
     } catch (err) {
       console.error(err);
-      setError("Could not open this maid profile. Please try again.");
+      setError("Could not open this professional profile. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -141,7 +142,7 @@ export function FirebaseMaidProfile({ maidId }: { maidId: string }) {
           <aside className="profile-sidebar">
             <span className="overline">Maid Center profile</span>
             <h2>{isEmployer ? "Interested in this professional?" : "Professional account"}</h2>
-            <p>{isEmployer ? "Submit an interview request through Maid Center Zambia. Direct contact information stays private while the request moves through review." : "This profile is connected to the Maid Center verification and placement workflow."}</p>
+            <p>{isEmployer ? "Submit an interview request through Maid Center Zambia. Direct contact information and verification documents are not loaded into this employer-facing profile." : "This profile is connected to the Maid Center verification and placement workflow."}</p>
             <dl>
               <div><dt>Arrangement</dt><dd>{maid.workType || "Not set"}</dd></div>
               <div><dt>Expected rate</dt><dd>ZMW {Number(maid.expectedRate || 0).toLocaleString("en-ZM")}</dd></div>
