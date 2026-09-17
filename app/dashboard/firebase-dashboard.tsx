@@ -15,9 +15,9 @@ import {
   LogOut,
   MapPin,
   Pencil,
+  RefreshCw,
   ShieldCheck,
   Star,
-  UserRound,
   WalletCards,
 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
@@ -51,27 +51,71 @@ type MaidProfile = {
 };
 type EmployerProfile = { fullName?: string; area?: string; service?: string; verificationStatus?: string; budget?: number; preferredStartDate?: string };
 
+function friendlyDashboardError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (message.includes("permission-denied")) return "Firebase security rules blocked access to this account profile.";
+  if (message.includes("unavailable")) return "Firebase is temporarily unavailable. Check your connection and try again.";
+  if (message.includes("network")) return "The dashboard could not reach Firebase. Check your internet connection and try again.";
+  return "We could not load your account information. Please try again.";
+}
+
 export function FirebaseDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<FirebaseUserProfile | null>(null);
   const [roleProfile, setRoleProfile] = useState<MaidProfile | EmployerProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => subscribeToFirebaseAuth(async (currentUser) => {
-    if (!currentUser) {
-      router.replace("/auth");
-      return;
-    }
-    setUser(currentUser);
-    const base = await getFirebaseUserProfile(currentUser.uid);
-    setProfile(base);
-    if (base?.role) {
-      const snapshot = await getDoc(doc(db, base.role === "maid" ? "maids" : "employers", currentUser.uid));
-      setRoleProfile(snapshot.exists() ? snapshot.data() as MaidProfile | EmployerProfile : null);
-    }
-    setLoading(false);
-  }), [router]);
+  useEffect(() => {
+    let active = true;
+
+    const unsubscribe = subscribeToFirebaseAuth(async (currentUser) => {
+      if (!active) return;
+
+      if (!currentUser) {
+        setLoading(false);
+        router.replace("/auth");
+        return;
+      }
+
+      setUser(currentUser);
+      setErrorMessage(null);
+
+      try {
+        const base = await getFirebaseUserProfile(currentUser.uid);
+        if (!active) return;
+
+        if (!base) {
+          setProfile(null);
+          setRoleProfile(null);
+          setErrorMessage("Your account exists, but its Maid Center profile record was not found. Complete your registration again.");
+          return;
+        }
+
+        setProfile(base);
+
+        if (base.role) {
+          const collectionName = base.role === "maid" ? "maids" : "employers";
+          const snapshot = await getDoc(doc(db, collectionName, currentUser.uid));
+          if (!active) return;
+          setRoleProfile(snapshot.exists() ? (snapshot.data() as MaidProfile | EmployerProfile) : null);
+        } else {
+          setRoleProfile(null);
+        }
+      } catch (error) {
+        console.error("Dashboard profile load failed:", error);
+        if (active) setErrorMessage(friendlyDashboardError(error));
+      } finally {
+        if (active) setLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [router]);
 
   async function logout() {
     await signOutFirebaseAccount();
@@ -79,7 +123,23 @@ export function FirebaseDashboard() {
   }
 
   if (loading) return <main className={styles.loading}><Loader2 className={styles.spin} />Loading your account…</main>;
-  if (!user || !profile) return null;
+
+  if (errorMessage || !user || !profile) {
+    return (
+      <main className={styles.loading}>
+        <div style={{maxWidth:520,textAlign:"center",display:"grid",gap:14,padding:24}}>
+          <ShieldCheck size={42} style={{margin:"0 auto"}}/>
+          <h1 style={{margin:0,fontSize:28}}>Dashboard could not open</h1>
+          <p style={{margin:0,lineHeight:1.6}}>{errorMessage || "Your account profile could not be loaded."}</p>
+          <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+            <button onClick={()=>window.location.reload()} className={styles.editButton}><RefreshCw size={16}/>Try again</button>
+            <Link href="/#register" className={styles.editButton}>Complete registration</Link>
+            <button onClick={logout} className={styles.editButton}><LogOut size={16}/>Sign out</button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   const isMaid = profile.role === "maid";
   const name = roleProfile?.fullName || profile.displayName || user.email || "Account";
