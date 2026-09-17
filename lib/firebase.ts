@@ -1,7 +1,7 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -27,7 +27,18 @@ const firebaseConfig = {
 
 export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(firebaseApp);
-export const db = getFirestore(firebaseApp);
+
+// Firestore's normal streaming transport can hang on some mobile networks,
+// proxies, VPNs and restrictive Wi-Fi. Auto-detect long polling gives the
+// browser a compatible fallback instead of leaving reads pending forever.
+export const db =
+  typeof window === "undefined"
+    ? getFirestore(firebaseApp)
+    : initializeFirestore(firebaseApp, {
+        experimentalAutoDetectLongPolling: true,
+        useFetchStreams: false,
+      });
+
 export const storage = getStorage(firebaseApp);
 
 let analyticsPromise: Promise<Analytics | null> | null = null;
