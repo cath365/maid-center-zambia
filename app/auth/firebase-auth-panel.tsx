@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import {
+  getFirebaseUserProfile,
   registerFirebaseAccount,
   sendFirebasePasswordReset,
   signInFirebaseAccount,
@@ -28,9 +29,10 @@ export function FirebaseAuthPanel() {
 
     try {
       if (mode === "signin") {
-        await signInFirebaseAccount(formEmail, password);
+        const user = await signInFirebaseAccount(formEmail, password);
+        const profile = await getFirebaseUserProfile(user.uid);
         toast.success("Welcome back.");
-        router.push("/dashboard");
+        router.push(profile?.role === "admin" ? "/admin" : "/dashboard");
         return;
       }
 
@@ -44,7 +46,7 @@ export function FirebaseAuthPanel() {
         role,
       });
       toast.success("Account created successfully.");
-      router.push(role === "maid" ? "/#register" : "/#register");
+      router.push("/register");
     } catch (error) {
       toast.error(firebaseMessage(error));
     } finally {
@@ -103,7 +105,7 @@ export function FirebaseAuthPanel() {
         </button>
       </form>
 
-      {mode === "register" && <p className={styles.note}>After creating your account, complete the registration form on the home page so Maid Center can verify your profile.</p>}
+      {mode === "register" && <p className={styles.note}>After creating your account, continue to the secure registration flow to complete your worker profile or employer request.</p>}
     </div>
   );
 }
