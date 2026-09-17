@@ -68,7 +68,8 @@ service cloud.firestore {
       allow read: if isAdmin()
         || isOwner(uid)
         || (hasRole('employer') && resource.data.verificationStatus == 'approved');
-      allow create, update, delete: if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin() || isOwner(uid);
     }
 
     match /employers/{uid} {
