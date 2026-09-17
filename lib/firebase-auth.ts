@@ -14,7 +14,8 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "./firebase";
 
 export type PublicAccountRole = "maid" | "employer";
-export interface FirebaseUserProfile { uid:string; email:string|null; displayName:string; phone:string; role:PublicAccountRole; status:string; createdAt?:unknown; updatedAt?:unknown }
+export type AccountRole = PublicAccountRole | "admin";
+export interface FirebaseUserProfile { uid:string; email:string|null; displayName:string; phone:string; role:AccountRole; status:string; createdAt?:unknown; updatedAt?:unknown }
 export interface RegisterAccountInput { email:string; password:string; displayName:string; role:PublicAccountRole; phone?:string }
 export interface MaidProfileInput { fullName:string; phone:string; dateOfBirth:string; nrcNumber:string; area:string; experienceYears:number; workType:string; expectedRate:number; services:string; languages:string; workHistory:string; reference1Name:string; reference1Phone:string; reference2Name:string; reference2Phone:string; emergencyName:string; emergencyPhone:string; profilePhoto?:File|null; nrcDocument?:File|null }
 export interface EmployerProfileInput { fullName:string; phone:string; email:string; area:string; service:string; startDate:string; schedule:string; budget:number; householdSize:number; requirements:string }
