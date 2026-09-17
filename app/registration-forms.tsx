@@ -18,12 +18,28 @@ import {
   type MaidProfileInput,
 } from "@/lib/firebase-auth";
 
+function withTimeout<T>(promise:Promise<T>,ms:number,label:string):Promise<T>{
+  return Promise.race([
+    promise,
+    new Promise<T>((_,reject)=>setTimeout(()=>reject(new Error(`${label} timed out. Please check your connection and try again.`)),ms)),
+  ]);
+}
+
 export function RegistrationForms(){
   const router=useRouter();
   const[busy,setBusy]=useState<string|null>(null);
 
+  async function finishRegistration(message:string){
+    toast.success(message);
+    setBusy(null);
+    router.replace("/dashboard");
+    router.refresh();
+  }
+
   async function submitWorker(e:React.FormEvent<HTMLFormElement>){
-    e.preventDefault();setBusy("worker");
+    e.preventDefault();
+    if(busy)return;
+    setBusy("worker");
     const f=new FormData(e.currentTarget);
     const email=String(f.get("email")||"").trim();
     const password=String(f.get("password")||"");
@@ -33,18 +49,22 @@ export function RegistrationForms(){
     try{
       if(auth.currentUser){
         if(auth.currentUser.email?.toLowerCase()!==email.toLowerCase())throw new Error("Use the email address of the account currently signed in.");
-        await saveMaidProfile(auth.currentUser,profile);
+        await withTimeout(saveMaidProfile(auth.currentUser,profile),45000,"Maid registration");
       }else{
         if(password.length<6)throw new Error("Password must contain at least 6 characters.");
-        await registerMaidAccount({email,password,displayName:profile.fullName,phone:profile.phone},profile);
+        await withTimeout(registerMaidAccount({email,password,displayName:profile.fullName,phone:profile.phone},profile),60000,"Maid registration");
       }
-      toast.success("Maid profile submitted for verification.");
-      router.push("/dashboard");
-    }catch(error){toast.error(firebaseMessage(error))}finally{setBusy(null)}
+      await finishRegistration("Maid profile submitted for verification.");
+    }catch(error){
+      setBusy(null);
+      toast.error(firebaseMessage(error));
+    }
   }
 
   async function submitEmployer(e:React.FormEvent<HTMLFormElement>){
-    e.preventDefault();setBusy("client");
+    e.preventDefault();
+    if(busy)return;
+    setBusy("client");
     const f=new FormData(e.currentTarget);
     const email=String(f.get("email")||"").trim();
     const password=String(f.get("password")||"");
@@ -52,14 +72,16 @@ export function RegistrationForms(){
     try{
       if(auth.currentUser){
         if(auth.currentUser.email?.toLowerCase()!==email.toLowerCase())throw new Error("Use the email address of the account currently signed in.");
-        await saveEmployerProfile(auth.currentUser,profile);
+        await withTimeout(saveEmployerProfile(auth.currentUser,profile),30000,"Employer registration");
       }else{
         if(password.length<6)throw new Error("Password must contain at least 6 characters.");
-        await registerEmployerAccount({email,password,displayName:profile.fullName,phone:profile.phone},profile);
+        await withTimeout(registerEmployerAccount({email,password,displayName:profile.fullName,phone:profile.phone},profile),45000,"Employer registration");
       }
-      toast.success("Employer request saved successfully.");
-      router.push("/dashboard");
-    }catch(error){toast.error(firebaseMessage(error))}finally{setBusy(null)}
+      await finishRegistration("Employer request saved successfully.");
+    }catch(error){
+      setBusy(null);
+      toast.error(firebaseMessage(error));
+    }
   }
 
   return <><Toaster richColors position="top-center"/><Tabs defaultValue="worker" className="registration-tabs"><TabsList className="tab-list"><TabsTrigger value="worker"><UserRound/> Register for work</TabsTrigger><TabsTrigger value="client"><Home/> Find a maid</TabsTrigger></TabsList>
@@ -71,4 +93,4 @@ function F({label,children,full=false}:{label:string;children:React.ReactNode;fu
 function Intro({label,title,copy}:{label:string;title:string;copy:string}){return <div className="form-intro"><span>{label}</span><h3>{title}</h3><p>{copy}</p></div>}
 function Consent({name,text}:{name:string;text:string}){return <label className="consent full"><Checkbox name={name} required/><span>{text}</span></label>}
 function Submit({busy,text}:{busy:boolean;text:string}){return <div className="full"><Button className="submit-button" disabled={busy} type="submit">{busy?<><Loader2 className="spin"/>Saving…</>:text}</Button></div>}
-function firebaseMessage(error:unknown){const m=error instanceof Error?error.message:"Please try again.";if(m.includes("auth/email-already-in-use"))return "An account already exists for this email. Sign in first, then complete the form.";if(m.includes("auth/weak-password"))return "Use a password with at least 6 characters.";if(m.includes("storage/unauthorized"))return "File upload is not allowed yet. Check Firebase Storage security rules.";if(m.includes("permission-denied"))return "Firebase security rules blocked this request. Check Firestore rules.";return m.replace("Firebase: ","")}
+function firebaseMessage(error:unknown){const m=error instanceof Error?error.message:"Please try again.";if(m.includes("auth/email-already-in-use"))return "An account already exists for this email. Sign in first, then complete the form.";if(m.includes("auth/weak-password"))return "Use a password with at least 6 characters.";if(m.includes("storage/unauthorized"))return "File upload is not allowed yet. Check Firebase Storage security rules.";if(m.includes("permission-denied"))return "Firebase security rules blocked this request. Check Firestore rules.";if(m.includes("timed out"))return m;return m.replace("Firebase: ","")}
