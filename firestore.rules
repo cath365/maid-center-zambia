@@ -1,52 +1,136 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
-    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
-    function isAdmin() { return signedIn() && userDoc().data.role == 'admin'; }
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasRole(role) {
+      return signedIn() && userDoc().data.role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function approvedPublicMaid(uid) {
+      return get(/databases/$(database)/documents/maidPublicProfiles/$(uid)).data.verificationStatus == 'approved';
+    }
 
     match /users/{uid} {
       allow create: if isOwner(uid)
         && request.resource.data.uid == uid
         && request.resource.data.role in ['maid', 'employer'];
-      allow read, update: if isOwner(uid) || isAdmin();
+
+      allow read: if isOwner(uid) || isAdmin();
+
+      allow update: if isAdmin()
+        || (isOwner(uid)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['displayName', 'phone', 'updatedAt']));
+
       allow delete: if isAdmin();
     }
 
     match /maids/{uid} {
-      allow create, update: if isOwner(uid);
-      allow read: if isOwner(uid) || isAdmin()
-        || (signedIn() && userDoc().data.role == 'employer' && resource.data.verificationStatus == 'approved');
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.verificationStatus == 'pending';
+
+      allow read: if isOwner(uid) || isAdmin();
+
+      allow update: if isAdmin()
+        || (isOwner(uid)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.verificationStatus == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'fullName', 'phone', 'dateOfBirth', 'nrcNumber', 'area',
+            'experienceYears', 'workType', 'expectedRate', 'services',
+            'languages', 'workHistory', 'references', 'emergencyContact',
+            'profilePhotoURL', 'nrcDocumentURL', 'verificationStatus',
+            'availability', 'createdAt', 'updatedAt'
+          ]));
+
       allow delete: if isAdmin();
     }
 
+    match /maidPublicProfiles/{uid} {
+      allow read: if isAdmin()
+        || isOwner(uid)
+        || (hasRole('employer') && resource.data.verificationStatus == 'approved');
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin() || isOwner(uid);
+    }
+
     match /employers/{uid} {
-      allow create, update, read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.verificationStatus == 'pending';
+
+      allow read: if isOwner(uid) || isAdmin();
+
+      allow update: if isAdmin()
+        || (isOwner(uid)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.verificationStatus == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'fullName', 'phone', 'email', 'area', 'service',
+            'preferredStartDate', 'schedule', 'budget', 'householdSize',
+            'requirements', 'verificationStatus', 'createdAt', 'updatedAt'
+          ]));
+
       allow delete: if isAdmin();
     }
 
     match /applications/{id} {
-      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow read: if signedIn() && (resource.data.maidId == request.auth.uid || resource.data.employerId == request.auth.uid || isAdmin());
-      allow update: if signedIn() && (resource.data.maidId == request.auth.uid || resource.data.employerId == request.auth.uid || isAdmin());
-      allow delete: if isAdmin();
+      allow create: if hasRole('employer')
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.employerId == request.auth.uid
+        && request.resource.data.type == 'interview_request'
+        && request.resource.data.status == 'requested'
+        && request.resource.data.maidId is string
+        && approvedPublicMaid(request.resource.data.maidId);
+
+      allow read: if signedIn()
+        && (resource.data.maidId == request.auth.uid
+          || resource.data.employerId == request.auth.uid
+          || isAdmin());
+
+      allow update, delete: if isAdmin();
     }
 
     match /bookings/{id} {
-      allow create: if signedIn() && request.resource.data.employerId == request.auth.uid;
-      allow read, update: if signedIn() && (resource.data.maidId == request.auth.uid || resource.data.employerId == request.auth.uid || isAdmin());
-      allow delete: if isAdmin();
+      allow create: if hasRole('employer')
+        && request.resource.data.employerId == request.auth.uid;
+      allow read: if signedIn()
+        && (resource.data.maidId == request.auth.uid
+          || resource.data.employerId == request.auth.uid
+          || isAdmin());
+      allow update, delete: if isAdmin();
     }
 
     match /reviews/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.employerId == request.auth.uid;
+      allow create: if hasRole('employer')
+        && request.resource.data.employerId == request.auth.uid;
       allow update, delete: if isAdmin();
     }
 
     match /notifications/{id} {
-      allow read, update: if signedIn() && resource.data.userId == request.auth.uid;
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAt']);
       allow create, delete: if isAdmin();
     }
   }

@@ -1,1 +1,1 @@
-Fresh Vercel redeploy trigger created 2026-09-16 after a stuck pending deployment. This file has no runtime effect.
+Fresh Vercel preview redeploy triggered 2026-09-17 after restoring supported Firestore initialization. This file has no runtime effect.

@@ -9,12 +9,13 @@ import {
   updateProfile,
   type User,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "./firebase";
 
 export type PublicAccountRole = "maid" | "employer";
-export interface FirebaseUserProfile { uid:string; email:string|null; displayName:string; phone:string; role:PublicAccountRole; status:string; createdAt?:unknown; updatedAt?:unknown }
+export type AccountRole = PublicAccountRole | "admin";
+export interface FirebaseUserProfile { uid:string; email:string|null; displayName:string; phone:string; role:AccountRole; status:string; createdAt?:unknown; updatedAt?:unknown }
 export interface RegisterAccountInput { email:string; password:string; displayName:string; role:PublicAccountRole; phone?:string }
 export interface MaidProfileInput { fullName:string; phone:string; dateOfBirth:string; nrcNumber:string; area:string; experienceYears:number; workType:string; expectedRate:number; services:string; languages:string; workHistory:string; reference1Name:string; reference1Phone:string; reference2Name:string; reference2Phone:string; emergencyName:string; emergencyPhone:string; profilePhoto?:File|null; nrcDocument?:File|null }
 export interface EmployerProfileInput { fullName:string; phone:string; email:string; area:string; service:string; startDate:string; schedule:string; budget:number; householdSize:number; requirements:string }
@@ -49,9 +50,43 @@ async function syncBaseProfile(user:User,displayName:string,phone:string,role:Pu
 export async function saveMaidProfile(user:User,profile:MaidProfileInput){
   await syncBaseProfile(user,profile.fullName,profile.phone,"maid");
 
-  const data:any={uid:user.uid,fullName:profile.fullName.trim(),phone:profile.phone.trim(),dateOfBirth:profile.dateOfBirth,nrcNumber:profile.nrcNumber.trim(),area:profile.area.trim(),experienceYears:Number(profile.experienceYears)||0,workType:profile.workType,expectedRate:Number(profile.expectedRate)||0,services:profile.services.trim(),languages:profile.languages.trim(),workHistory:profile.workHistory.trim(),references:[{name:profile.reference1Name.trim(),phone:profile.reference1Phone.trim()},{name:profile.reference2Name.trim(),phone:profile.reference2Phone.trim()}],emergencyContact:{name:profile.emergencyName.trim(),phone:profile.emergencyPhone.trim()},verificationStatus:"pending",availability:"available",profileViews:0,rating:0,updatedAt:serverTimestamp(),createdAt:serverTimestamp()};
+  const maidRef=doc(db,"maids",user.uid);
+  const existing=await withTimeout(getDoc(maidRef),10000,"Existing maid profile load");
 
-  await withTimeout(setDoc(doc(db,"maids",user.uid),data,{merge:true}),15000,"Maid profile save");
+  // Any profile edit requires re-verification. Remove the approved public copy first
+  // so stale information is never left visible while the private profile is pending.
+  await withTimeout(deleteDoc(doc(db,"maidPublicProfiles",user.uid)),10000,"Public profile withdrawal");
+
+  const data:any={
+    uid:user.uid,
+    fullName:profile.fullName.trim(),
+    phone:profile.phone.trim(),
+    dateOfBirth:profile.dateOfBirth,
+    nrcNumber:profile.nrcNumber.trim(),
+    area:profile.area.trim(),
+    experienceYears:Number(profile.experienceYears)||0,
+    workType:profile.workType,
+    expectedRate:Number(profile.expectedRate)||0,
+    services:profile.services.trim(),
+    languages:profile.languages.trim(),
+    workHistory:profile.workHistory.trim(),
+    references:[
+      {name:profile.reference1Name.trim(),phone:profile.reference1Phone.trim()},
+      {name:profile.reference2Name.trim(),phone:profile.reference2Phone.trim()},
+    ],
+    emergencyContact:{name:profile.emergencyName.trim(),phone:profile.emergencyPhone.trim()},
+    verificationStatus:"pending",
+    availability:existing.exists()?String(existing.data().availability||"available"):"available",
+    updatedAt:serverTimestamp(),
+  };
+
+  if(!existing.exists()){
+    data.profileViews=0;
+    data.rating=0;
+    data.createdAt=serverTimestamp();
+  }
+
+  await withTimeout(setDoc(maidRef,data,{merge:true}),15000,"Maid profile save");
 
   const uploadResults=await Promise.allSettled([
     uploadPrivateUserFile(user.uid,"profile",profile.profilePhoto),
@@ -63,12 +98,16 @@ export async function saveMaidProfile(user:User,profile:MaidProfileInput){
   const uploadUpdate:any={updatedAt:serverTimestamp()};
   if(profilePhotoURL)uploadUpdate.profilePhotoURL=profilePhotoURL;
   if(nrcDocumentURL)uploadUpdate.nrcDocumentURL=nrcDocumentURL;
-  if(profilePhotoURL||nrcDocumentURL)await withTimeout(setDoc(doc(db,"maids",user.uid),uploadUpdate,{merge:true}),10000,"Maid document update");
+  if(profilePhotoURL||nrcDocumentURL)await withTimeout(setDoc(maidRef,uploadUpdate,{merge:true}),10000,"Maid document update");
 }
 
 export async function saveEmployerProfile(user:User,profile:EmployerProfileInput){
   await syncBaseProfile(user,profile.fullName,profile.phone,"employer");
-  await withTimeout(setDoc(doc(db,"employers",user.uid),{uid:user.uid,fullName:profile.fullName.trim(),phone:profile.phone.trim(),email:profile.email.trim().toLowerCase(),area:profile.area.trim(),service:profile.service,preferredStartDate:profile.startDate,schedule:profile.schedule.trim(),budget:Number(profile.budget)||0,householdSize:Number(profile.householdSize)||1,requirements:profile.requirements.trim(),verificationStatus:"pending",createdAt:serverTimestamp(),updatedAt:serverTimestamp()},{merge:true}),15000,"Employer profile save");
+  const employerRef=doc(db,"employers",user.uid);
+  const existing=await withTimeout(getDoc(employerRef),10000,"Existing employer profile load");
+  const data:any={uid:user.uid,fullName:profile.fullName.trim(),phone:profile.phone.trim(),email:profile.email.trim().toLowerCase(),area:profile.area.trim(),service:profile.service,preferredStartDate:profile.startDate,schedule:profile.schedule.trim(),budget:Number(profile.budget)||0,householdSize:Number(profile.householdSize)||1,requirements:profile.requirements.trim(),verificationStatus:"pending",updatedAt:serverTimestamp()};
+  if(!existing.exists())data.createdAt=serverTimestamp();
+  await withTimeout(setDoc(employerRef,data,{merge:true}),15000,"Employer profile save");
 }
 
 export async function registerMaidAccount(account:Omit<RegisterAccountInput,"role">,profile:MaidProfileInput){const user=await registerFirebaseAccount({...account,role:"maid"});await saveMaidProfile(user,profile);return user}

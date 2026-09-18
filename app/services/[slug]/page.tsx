@@ -63,7 +63,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
       <header className={styles.header}>
         <div className={styles.shell}>
           <Link className={styles.brand} href="/"><span>MC</span><strong>Maid Center <b>Zambia</b></strong></Link>
-          <nav><Link href="/">Home</Link><Link className={styles.active} href="/services">Services</Link><Link href="/#how">Our process</Link><Link href="/#register">Registration</Link></nav>
+          <nav><Link href="/">Home</Link><Link className={styles.active} href="/services">Services</Link><Link href="/process">Our process</Link><Link href="/register">Registration</Link></nav>
           <Link className={styles.signIn} href="/auth">Sign in</Link>
         </div>
       </header>
@@ -77,8 +77,8 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
             <h2>{service.subtitle}</h2>
             <p>{service.description}</p>
             <div className={styles.actions}>
-              <Link className={styles.primary} href="/#register">Request this service <ArrowRight size={18}/></Link>
-              <Link className={styles.secondary} href="/#register">Apply for work</Link>
+              <Link className={styles.primary} href="/register">Request this service <ArrowRight size={18}/></Link>
+              <Link className={styles.secondary} href="/register">Apply for work</Link>
             </div>
           </div>
           <div className={styles.iconPanel}>
@@ -117,7 +117,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
       <section className={styles.finalCta}>
         <div><span className={styles.label}>Need this service?</span><h2>Start your {service.title.toLowerCase()} request.</h2></div>
-        <Link className={styles.primary} href="/#register">Get started <ArrowRight size={18}/></Link>
+        <Link className={styles.primary} href="/register">Get started <ArrowRight size={18}/></Link>
       </section>
     </main>
   );
