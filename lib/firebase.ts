@@ -36,7 +36,6 @@ export const db =
     ? getFirestore(firebaseApp)
     : initializeFirestore(firebaseApp, {
         experimentalAutoDetectLongPolling: true,
-        useFetchStreams: false,
       });
 
 export const storage = getStorage(firebaseApp);
